@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <cstring>
 
 #include "../rbf/rbfm.h"
 
@@ -79,9 +80,12 @@ class IndexManager {
         static IndexManager *_index_manager;
 
         void newIndexPage(void * page);
+
         NodeHeader getNodePageHeader(void * page);
         void setNodePageHeader(void * page, NodeHeader nodeHeader);
+
         unsigned getRootPageNum(IXFileHandle ixFileHandle);
+        NodeEntry getNodeEntry(void* page, unsigned pageNum);
 };
 
 

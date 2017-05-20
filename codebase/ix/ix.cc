@@ -27,12 +27,6 @@ RC IndexManager::createFile(const string &fileName)
     if (_pf_manager->createFile(fileName))
         return IX_CREATE_FAILED;
 
-    // void * headerBuffer = malloc(sizeof(BTreeHeader));
-    // BTreeHeader bHeader;
-    // bHeader.rootPageNum = 0;
-    // memcpy(headerBuffer, &bHeader, sizeof(BTreeHeader));
-    // fwrite(headerBuffer, sizeof(BTreeHeader), 1, fileName);     //check------------------
-
     // Setting up the first page.
     void * firstPageData = calloc(PAGE_SIZE, 1);
     if (firstPageData == NULL)
@@ -40,7 +34,7 @@ RC IndexManager::createFile(const string &fileName)
     newIndexPage(firstPageData);
     NodeHeader nodeHeader = getNodePageHeader(firstPageData);
     nodeHeader.isRoot = true;
-    nodeheader.isLeaf = true;
+    nodeHeader.isLeaf = true;
     setNodePageHeader(firstPageData, nodeHeader);
 
     // Adds the first record based page.
@@ -51,7 +45,6 @@ RC IndexManager::createFile(const string &fileName)
         return IX_APPEND_FAILED;
     _pf_manager->closeFile(handle);
 
-    free(headerBuffer);
     free(firstPageData);
 
     return SUCCESS;
@@ -121,7 +114,6 @@ IXFileHandle::IXFileHandle()
     ixReadPageCounter = 0; 
     ixWritePageCounter = 0;
     ixAppendPageCounter = 0;
-    fileHandle = NULL;
 }
 
 IXFileHandle::~IXFileHandle()
@@ -156,7 +148,7 @@ void IndexManager::newIndexPage(void * page)
 NodeHeader IndexManager::getNodePageHeader(void * page){
     NodeHeader nodeHeader;
     memcpy (&nodeHeader, page, sizeof(NodeHeader));
-    return NodeHeader;
+    return nodeHeader;
 }
 
 void IndexManager::setNodePageHeader(void * page, NodeHeader nodeHeader){
@@ -167,7 +159,7 @@ NodeEntry IndexManager::getNodeEntry(void* page, unsigned pageNum){
     NodeEntry entry;
     unsigned offset = sizeof(NodeHeader) + pageNum * sizeof(NodeEntry);
     memcpy(&entry, (char*)page + offset, sizeof(NodeEntry));
-    return SUCCESS;
+    return entry;
 }
 
 unsigned IndexManager::getRootPageNum(IXFileHandle ixFileHandle){
