@@ -8,20 +8,22 @@
 
 # define IX_EOF (-1)  // end of the index scan
 
-# define  IXF_COLLECT_VALUES_FAIL 1;
+# define  IXF_COLLECT_VALUES_FAIL 1
+# define  IX_MALLOC_FAILED 2
+# define  IX_OPEN_FAILED 3
+# define  IX_APPEND_FAILED 4
+# define  IX_CREATE_FAILED 5
+# define  IX_READ_FAILED 6
 
 class IX_ScanIterator;
 class IXFileHandle;
 
-typedef struct BTreeHeader {        //file header
-    uint16_t rootPageNum;
-} BTreeHeader;
-
 typedef struct NodeHeader      //page header
 {
     uint16_t freeSpaceOffset;
-    uint16_t IndexEntryNumber;
+    uint16_t indexEntryNumber;
     bool isLeaf;
+    bool isRoot;
     uint16_t leftPageNum;
     uint16_t rightPageNum;
 } NodeHeader;
@@ -75,6 +77,11 @@ class IndexManager {
 
     private:
         static IndexManager *_index_manager;
+
+        void newIndexPage(void * page);
+        NodeHeader getNodePageHeader(void * page);
+        void setNodePageHeader(void * page, NodeHeader nodeHeader);
+        unsigned getRootPageNum(IXFileHandle ixFileHandle);
 };
 
 
