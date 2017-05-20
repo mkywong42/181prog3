@@ -23,7 +23,29 @@ IndexManager::~IndexManager()
 
 RC IndexManager::createFile(const string &fileName)
 {
-    return -1;
+    // Creating a new paged file.
+    if (_pf_manager->createFile(fileName))
+        return RBFM_CREATE_FAILED;
+
+    void * headerBuffer = malloc(sizeof())
+
+    // Setting up the first page.
+    void * firstPageData = calloc(PAGE_SIZE, 1);
+    if (firstPageData == NULL)
+        return RBFM_MALLOC_FAILED;
+    newRecordBasedPage(firstPageData);
+
+    // Adds the first record based page.
+    FileHandle handle;
+    if (_pf_manager->openFile(fileName.c_str(), handle))
+        return RBFM_OPEN_FAILED;
+    if (handle.appendPage(firstPageData))
+        return RBFM_APPEND_FAILED;
+    _pf_manager->closeFile(handle);
+
+    free(firstPageData);
+
+    return SUCCESS;
 }
 
 RC IndexManager::destroyFile(const string &fileName)

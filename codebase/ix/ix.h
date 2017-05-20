@@ -8,13 +8,36 @@
 
 # define IX_EOF (-1)  // end of the index scan
 
+# define  IXF_COLLECT_VALUES_FAIL 1;
+
 class IX_ScanIterator;
 class IXFileHandle;
+
+typedef struct BTreeHeader {        //file header
+    uint16_t rootPageNum;
+} BTreeHeader;
+
+typedef struct NodeHeader      //page header
+{
+    uint16_t freeSpaceOffset;
+    uint16_t IndexEntryNumber;
+    bool isLeaf;
+    uint16_t leftPageNum;
+    uint16_t rightPageNum;
+} NodeHeader;
+
+typedef struct NodeEntry {
+    RID rid;
+    //need key value
+    uint16_t leftChildPageNum;
+    uint16_t rightChildPageNum;
+} NodeEntry;
 
 class IndexManager {
 
     public:
         static IndexManager* instance();
+        static PagedFileManager *_pf_manager;
 
         // Create an index file.
         RC createFile(const string &fileName);
@@ -89,6 +112,11 @@ class IXFileHandle {
 
 	// Put the current counter values of associated PF FileHandles into variables
 	RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
+
+    friend class IndexManager;
+    private:
+
+    FileHandle fileHandle;
 
 };
 
