@@ -67,7 +67,35 @@ RC IndexManager::closeFile(IXFileHandle &ixfileHandle)
 
 RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
 {
-    return -1;
+    //find correct leaf page
+    unsigned pageNum = traverse(ixfileHandle, attribute, key);
+    void* pageData = malloc(PAGE_SIZE);
+    if (ixfileHandle.fileHandle.readPage(pageNum, pageData))
+        return IX_READ_FAILED;
+    NodeHeader nodeHeader = getNodePageHeader(pageData);
+    //if not enough size
+    if(nodeHeader.endOfEntries+sizeof(NodeHeader)>PAGE_SIZE){
+        //split
+    }else{
+        //insert in sorted order
+        //find correct place
+        unsigned entryNum = findPointerEntry(pageData, attribute, key);
+        unsigned offset = sizeof(NodeHeader) + entryNum * sizeof(NodeEntry);
+        //insert entry
+        NodeEntry entry;
+        entry.rid = rid;
+        entry.key = *((int*)key);               ////////////wrong
+        entry.leftChildPageNum = 0;
+        entry.rightChildPageNum = 0;
+        setEntryAtOffset(pageData, offset, entry);
+        //update node page header
+        nodeHeader.indexEntryNumber++;
+        nodeHeader.endOfEntries+=sizeof(NodeEntry);
+        setNodePageHeader(pageData, nodeHeader);
+    }
+    ixfileHandle.fileHandle.writePage(pageNum,pageData);
+    free(pageData);
+    return SUCCESS;
 }
 
 RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
@@ -136,7 +164,7 @@ void IndexManager::newIndexPage(void * page)
 {
     memset(page, 0, PAGE_SIZE);
     NodeHeader nodeHeader;
-    nodeHeader.freeSpaceOffset = sizeof(NodeHeader);
+    nodeHeader.endOfEntries = sizeof(NodeHeader);
     nodeHeader.indexEntryNumber = 0;
     nodeHeader.isLeaf = false;
     nodeHeader.isRoot = false;
@@ -155,9 +183,9 @@ void IndexManager::setNodePageHeader(void * page, NodeHeader nodeHeader){
     memcpy (page, &nodeHeader, sizeof(NodeHeader));
 }
 
-NodeEntry IndexManager::getNodeEntry(void* page, unsigned pageNum){
+NodeEntry IndexManager::getNodeEntry(void* page, unsigned entryNum){
     NodeEntry entry;
-    unsigned offset = sizeof(NodeHeader) + pageNum * sizeof(NodeEntry);
+    unsigned offset = sizeof(NodeHeader) + entryNum * sizeof(NodeEntry);
     memcpy(&entry, (char*)page + offset, sizeof(NodeEntry));
     return entry;
 }
@@ -171,15 +199,81 @@ unsigned IndexManager::getRootPageNum(IXFileHandle ixFileHandle){
     for (i = 0; i < numPages; i++)
     {
         if (ixFileHandle.fileHandle.readPage(i, pageData))
-            return IX_READ_FAILED;
+            return IX_READ_FAILED;  
         
         NodeHeader nodeHeader = getNodePageHeader(pageData);
         if(nodeHeader.isRoot == true){
             break;
         }
-
     }
-
     free(pageData);
     return i;
+}
+
+unsigned IndexManager::traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key){
+    bool atLeaf = false;
+    unsigned currentPage = getRootPageNum(ixfileHandle);
+    while(atLeaf == false){
+        void* pageData = malloc(PAGE_SIZE);
+        if (ixfileHandle.fileHandle.readPage(currentPage, pageData) != SUCCESS)
+        {
+            free(pageData);
+            return IX_READ_FAILED;
+        }
+        NodeHeader nodeHeader = getNodePageHeader(pageData);
+        if(nodeHeader.isLeaf == true){
+            atLeaf = true;
+            free(pageData);
+            break;
+        }
+        //find correct entry
+        unsigned entryNumber = findPointerEntry(pageData, attribute, key);
+        //decide where to go
+        NodeEntry entry = getNodeEntry(pageData, entryNumber);
+        int result = compare(attribute,entry, key);
+        //set current page
+        if(result <1){
+            currentPage = entry.leftChildPageNum;
+        }else{
+            currentPage = entry.rightChildPageNum;
+        }
+        free(pageData);
+        //need more??-------------------------------------------
+    }
+    return currentPage;
+}
+
+unsigned IndexManager::findPointerEntry(void* page, const Attribute &attribute, const void *key){
+    NodeHeader nodeHeader = getNodePageHeader(page);
+    unsigned i;
+    for(i=0; i<nodeHeader.indexEntryNumber; i++){
+        NodeEntry entry = getNodeEntry(page, i);
+        unsigned result = compare(attribute, entry, key);
+        if(result > 0 || i==nodeHeader.indexEntryNumber-1){
+            break;
+        }
+    }
+    return i;
+}
+
+//returns -1 if entry.key is less than key, returns 1 otherwise
+int IndexManager::compare(const Attribute &attribute, NodeEntry entry, const void *key){
+    if(attribute.type == TypeVarChar){
+        //TODO
+    }else if(attribute.type == TypeReal){
+        if(entry.key<*((float*)key)){return -1;}
+        else {return 1;}                            //need to define key
+    }else{
+        if(entry.key<*((int*)key)){ return -1;}     //need to define key
+        else {return 1;}
+    }
+    return 0;
+
+}
+
+void IndexManager::setEntryAtOffset(void* page, unsigned offset, NodeEntry entry){
+    NodeHeader nodeHeader = getNodePageHeader(page);
+    unsigned movingBlockSize = nodeHeader.endOfEntries - offset;
+    memmove((char*)page+offset+sizeof(NodeEntry), (char*)page+offset, movingBlockSize);
+    memcpy((char*)page + offset, &entry, sizeof(NodeEntry));
 }

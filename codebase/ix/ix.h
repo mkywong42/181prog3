@@ -21,7 +21,7 @@ class IXFileHandle;
 
 typedef struct NodeHeader      //page header
 {
-    uint16_t freeSpaceOffset;
+    uint16_t endOfEntries;
     uint16_t indexEntryNumber;
     bool isLeaf;
     bool isRoot;
@@ -32,6 +32,7 @@ typedef struct NodeHeader      //page header
 typedef struct NodeEntry {
     RID rid;
     //need key value
+    int key;   //may be wrong
     uint16_t leftChildPageNum;
     uint16_t rightChildPageNum;
 } NodeEntry;
@@ -79,13 +80,22 @@ class IndexManager {
     private:
         static IndexManager *_index_manager;
 
-        void newIndexPage(void * page);
+        void newIndexPage(void * page);     //creates a new Index Page
 
-        NodeHeader getNodePageHeader(void * page);
-        void setNodePageHeader(void * page, NodeHeader nodeHeader);
+        NodeHeader getNodePageHeader(void * page);      //returns the node page header
+        void setNodePageHeader(void * page, NodeHeader nodeHeader);     //sets the node page header
 
-        unsigned getRootPageNum(IXFileHandle ixFileHandle);
-        NodeEntry getNodeEntry(void* page, unsigned pageNum);
+         NodeEntry getNodeEntry(void* page, unsigned entryNum);   //returns the node entry on the page corresponding to the pageNum
+        unsigned getRootPageNum(IXFileHandle ixFileHandle);     //returns the page number of the root of the tree
+
+        unsigned traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key); //finds the correct leaf based on the key
+        unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
+                                                                                                //less than the specified key
+        int compare(const Attribute &attribute, NodeEntry entry, const void *key);      //returns -1 if entry.key is less, 1 otherwise
+
+        void setEntryAtOffset(void* page, unsigned offset, NodeEntry entry);        //moves all the entries after the entry and inserts the entry at the offset
+                                                                                    //does not update the page header
+        unsigned findSortedInsertionPoint(void* page, const Attribute &attribute, const void *key);     //finds where to insert the entry in a sorted page
 };
 
 
