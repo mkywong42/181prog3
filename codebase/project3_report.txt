@@ -26,5 +26,8 @@ Team number (e.g., 01) :
 
 
 6. Other (optional)
-- Freely use this section to tell us about things that are related to the project 3, but not related to the other sections (optional)
+Sources:
+http://www.cburch.com/cs/340/reading/btree/
+http://www.sanfoundry.com/cpp-program-to-implement-b-tree/
+https://www.cs.usfca.edu/~galles/visualization/BPlusTree.html
 

@@ -28,9 +28,9 @@ typedef struct NodeHeader      //page header
     uint16_t indexEntryNumber;
     bool isLeaf;
     bool isRoot;
-    uint16_t leftPageNum;
-    uint16_t rightPageNum;
-    uint16_t parent;
+    int16_t leftPageNum;
+    int16_t rightPageNum;
+    int16_t parent;
 } NodeHeader;
 
 typedef struct NodeEntry {
@@ -41,8 +41,8 @@ typedef struct NodeEntry {
         float floatValue;
         char* strValue;
     }key;
-    uint16_t leftChildPageNum;
-    uint16_t rightChildPageNum;
+    int16_t leftChildPageNum;
+    int16_t rightChildPageNum;
 } NodeEntry;
 
 class IndexManager {
@@ -90,11 +90,11 @@ class IndexManager {
 
         void newIndexPage(void * page);     //creates a new Index Page
 
-        NodeHeader getNodePageHeader(void * page);      //returns the node page header
+        NodeHeader getNodePageHeader(void * page)const;      //returns the node page header
         void setNodePageHeader(void * page, NodeHeader nodeHeader);     //sets the node page header
 
-        NodeEntry getNodeEntry(void* page, unsigned entryNum);   //returns the node entry on the page corresponding to the pageNum
-        unsigned getRootPageNum(IXFileHandle ixFileHandle);     //returns the page number of the root of the tree
+        NodeEntry getNodeEntry(void* page, unsigned entryNum)const;   //returns the node entry on the page corresponding to the pageNum
+        unsigned getRootPageNum(IXFileHandle ixFileHandle)const;     //returns the page number of the root of the tree
 
         unsigned traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key); //finds the correct leaf based on the key
         unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
@@ -106,6 +106,8 @@ class IndexManager {
         void insertInSortedOrder(void* page,const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
         unsigned splitPage(IXFileHandle &ixfileHandle, void* page, unsigned currentPageNum, 
                 unsigned parent, const Attribute &attribute, const void *key,const RID &rid);
+
+        void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum)const;
 };
 
 
