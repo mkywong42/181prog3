@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <cmath>
+#include <iostream>
 
 #include "../rbf/rbfm.h"
 
@@ -15,6 +17,7 @@
 # define  IX_APPEND_FAILED 4
 # define  IX_CREATE_FAILED 5
 # define  IX_READ_FAILED 6
+# define  IX_WRITE_FAILED 7
 
 class IX_ScanIterator;
 class IXFileHandle;
@@ -27,12 +30,17 @@ typedef struct NodeHeader      //page header
     bool isRoot;
     uint16_t leftPageNum;
     uint16_t rightPageNum;
+    uint16_t parent;
 } NodeHeader;
 
 typedef struct NodeEntry {
     RID rid;
     //need key value
-    int key;   //may be wrong
+    union{
+        int intValue;
+        float floatValue;
+        char* strValue;
+    }key;
     uint16_t leftChildPageNum;
     uint16_t rightChildPageNum;
 } NodeEntry;
@@ -85,17 +93,19 @@ class IndexManager {
         NodeHeader getNodePageHeader(void * page);      //returns the node page header
         void setNodePageHeader(void * page, NodeHeader nodeHeader);     //sets the node page header
 
-         NodeEntry getNodeEntry(void* page, unsigned entryNum);   //returns the node entry on the page corresponding to the pageNum
+        NodeEntry getNodeEntry(void* page, unsigned entryNum);   //returns the node entry on the page corresponding to the pageNum
         unsigned getRootPageNum(IXFileHandle ixFileHandle);     //returns the page number of the root of the tree
 
         unsigned traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key); //finds the correct leaf based on the key
         unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
                                                                                                 //less than the specified key
-        int compare(const Attribute &attribute, NodeEntry entry, const void *key);      //returns -1 if entry.key is less, 1 otherwise
+        int compare(const Attribute &attribute, NodeEntry &entry, const void *key);      //returns -1 if entry.key is less, 1 otherwise
 
-        void setEntryAtOffset(void* page, unsigned offset, NodeEntry entry);        //moves all the entries after the entry and inserts the entry at the offset
+        void setEntryAtOffset(void* page, unsigned offset, NodeEntry &entry);        //moves all the entries after the entry and inserts the entry at the offset
                                                                                     //does not update the page header
-        unsigned findSortedInsertionPoint(void* page, const Attribute &attribute, const void *key);     //finds where to insert the entry in a sorted page
+        void insertInSortedOrder(void* page,const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
+        unsigned splitPage(IXFileHandle &ixfileHandle, void* page, unsigned currentPageNum, 
+                unsigned parent, const Attribute &attribute, const void *key,const RID &rid);
 };
 
 

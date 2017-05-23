@@ -75,25 +75,22 @@ RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
     NodeHeader nodeHeader = getNodePageHeader(pageData);
     //if not enough size
     if(nodeHeader.endOfEntries+sizeof(NodeHeader)>PAGE_SIZE){
-        //split
+        splitPage(ixfileHandle, pageData, pageNum,nodeHeader.parent,attribute, key, rid);
     }else{
-        //insert in sorted order
-        //find correct place
-        unsigned entryNum = findPointerEntry(pageData, attribute, key);
-        unsigned offset = sizeof(NodeHeader) + entryNum * sizeof(NodeEntry);
-        //insert entry
-        NodeEntry entry;
-        entry.rid = rid;
-        entry.key = *((int*)key);               ////////////wrong
-        entry.leftChildPageNum = 0;
-        entry.rightChildPageNum = 0;
-        setEntryAtOffset(pageData, offset, entry);
-        //update node page header
-        nodeHeader.indexEntryNumber++;
-        nodeHeader.endOfEntries+=sizeof(NodeEntry);
-        setNodePageHeader(pageData, nodeHeader);
+        insertInSortedOrder(pageData, attribute, key, rid, NULL, NULL);
+        if(ixfileHandle.fileHandle.writePage(pageNum,pageData))
+            return IX_WRITE_FAILED;
     }
-    ixfileHandle.fileHandle.writePage(pageNum,pageData);
+void* testPageData = malloc(PAGE_SIZE);
+ixfileHandle.fileHandle.readPage(0,testPageData);
+NodeHeader testHeader = getNodePageHeader(testPageData);
+cout<<testHeader.indexEntryNumber<<endl;
+cout<<testHeader.isLeaf<<endl;
+cout<<testHeader.isRoot<<endl;
+NodeEntry tester = getNodeEntry(testPageData, 0);
+cout<<tester.key.intValue<<endl;
+cout<<tester.rid.pageNum<<endl;
+cout<<tester.rid.slotNum<<endl;
     free(pageData);
     return SUCCESS;
 }
@@ -168,8 +165,9 @@ void IndexManager::newIndexPage(void * page)
     nodeHeader.indexEntryNumber = 0;
     nodeHeader.isLeaf = false;
     nodeHeader.isRoot = false;
-    nodeHeader.leftPageNum = 0;
-    nodeHeader.rightPageNum = 0;
+    nodeHeader.leftPageNum = NULL;
+    nodeHeader.rightPageNum = NULL;
+    nodeHeader.parent = NULL;
     memcpy (page, &nodeHeader, sizeof(NodeHeader));
 }
 
@@ -213,6 +211,7 @@ unsigned IndexManager::getRootPageNum(IXFileHandle ixFileHandle){
 unsigned IndexManager::traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key){
     bool atLeaf = false;
     unsigned currentPage = getRootPageNum(ixfileHandle);
+    // parent = currentPage;
     while(atLeaf == false){
         void* pageData = malloc(PAGE_SIZE);
         if (ixfileHandle.fileHandle.readPage(currentPage, pageData) != SUCCESS)
@@ -232,7 +231,8 @@ unsigned IndexManager::traverse(IXFileHandle &ixfileHandle, const Attribute &att
         NodeEntry entry = getNodeEntry(pageData, entryNumber);
         int result = compare(attribute,entry, key);
         //set current page
-        if(result <1){
+        // parent = currentPage;
+        if(result > 0){
             currentPage = entry.leftChildPageNum;
         }else{
             currentPage = entry.rightChildPageNum;
@@ -249,7 +249,7 @@ unsigned IndexManager::findPointerEntry(void* page, const Attribute &attribute, 
     for(i=0; i<nodeHeader.indexEntryNumber; i++){
         NodeEntry entry = getNodeEntry(page, i);
         unsigned result = compare(attribute, entry, key);
-        if(result > 0 || i==nodeHeader.indexEntryNumber-1){
+        if(result > 0){
             break;
         }
     }
@@ -257,23 +257,168 @@ unsigned IndexManager::findPointerEntry(void* page, const Attribute &attribute, 
 }
 
 //returns -1 if entry.key is less than key, returns 1 otherwise
-int IndexManager::compare(const Attribute &attribute, NodeEntry entry, const void *key){
+int IndexManager::compare(const Attribute &attribute, NodeEntry &entry, const void *key){
     if(attribute.type == TypeVarChar){
-        //TODO
+        int lengthOfVarChar;
+        memcpy(&lengthOfVarChar,key, sizeof(int));
+        char varCharBuffer[lengthOfVarChar+1];
+        memcpy(varCharBuffer,(char*)key+sizeof(int), lengthOfVarChar);
+        varCharBuffer[lengthOfVarChar]='\0';
+
+        return strcmp(entry.key.strValue, varCharBuffer);
     }else if(attribute.type == TypeReal){
-        if(entry.key<*((float*)key)){return -1;}
+        if(entry.key.floatValue<*((float*)key)){return -1;}
         else {return 1;}                            //need to define key
     }else{
-        if(entry.key<*((int*)key)){ return -1;}     //need to define key
+        if(entry.key.intValue<*((int*)key)){ return -1;}     //need to define key
         else {return 1;}
     }
     return 0;
 
 }
 
-void IndexManager::setEntryAtOffset(void* page, unsigned offset, NodeEntry entry){
+void IndexManager::setEntryAtOffset(void* page, unsigned offset, NodeEntry &entry){
     NodeHeader nodeHeader = getNodePageHeader(page);
     unsigned movingBlockSize = nodeHeader.endOfEntries - offset;
     memmove((char*)page+offset+sizeof(NodeEntry), (char*)page+offset, movingBlockSize);
     memcpy((char*)page + offset, &entry, sizeof(NodeEntry));
+}
+
+void IndexManager::insertInSortedOrder(void* page, const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right){
+    //insert in sorted order
+    //find correct place
+    NodeHeader nodeHeader = getNodePageHeader(page);
+    unsigned entryNum = findPointerEntry(page, attribute, key);
+    unsigned offset = sizeof(NodeHeader) + entryNum * sizeof(NodeEntry);
+    //insert entry
+    NodeEntry entry;
+    entry.rid = rid;
+    if(attribute.type == TypeInt){
+        entry.key.intValue = *((int*)key);               
+    }else if(attribute.type == TypeReal){
+        entry.key.floatValue = *((float*)key);
+    }else{
+        int lengthOfVarChar;
+        memcpy(&lengthOfVarChar,key, sizeof(int));
+        char varCharBuffer[lengthOfVarChar+1];
+        memcpy(varCharBuffer,(char*)key+sizeof(int), lengthOfVarChar);
+        varCharBuffer[lengthOfVarChar]='\0';
+        entry.key.strValue = varCharBuffer;           //may be wrong  -----------------------
+    }
+    entry.leftChildPageNum = left;
+    entry.rightChildPageNum = right;
+    setEntryAtOffset(page, offset, entry);
+    //update node page header
+    nodeHeader.indexEntryNumber++;
+    nodeHeader.endOfEntries+=sizeof(NodeEntry);
+    setNodePageHeader(page, nodeHeader);
+    // ixfileHandle.fileHandle.writePage(pageNum,pageData);
+}
+
+unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigned currentPageNum, unsigned parent, const Attribute &attribute, const void *key, const RID &rid){
+    NodeHeader nodeHeader = getNodePageHeader(page);
+    //get mid of old page
+    unsigned mid = ceil((double) nodeHeader.indexEntryNumber / 2);
+    unsigned midOffset = sizeof(NodeHeader) + mid * sizeof(NodeEntry);
+    NodeEntry midEntry = getNodeEntry(page, mid);
+    //make new page
+    void * newPageData = calloc(PAGE_SIZE, 1);
+    if (newPageData == NULL)
+        return IX_MALLOC_FAILED;
+    newIndexPage(newPageData);
+
+    //redistribute entries
+    NodeHeader newNodeHeader = getNodePageHeader(newPageData);
+    if(nodeHeader.isLeaf == true){
+        newNodeHeader.isLeaf = true;
+        memcpy((char*)newPageData+sizeof(NodeHeader), (char*)page+midOffset, nodeHeader.endOfEntries - midOffset);
+        newNodeHeader.endOfEntries = sizeof(NodeHeader) + (nodeHeader.endOfEntries-midOffset);
+        if(nodeHeader.indexEntryNumber%2==0){
+            newNodeHeader.indexEntryNumber = nodeHeader.indexEntryNumber - mid;
+        }else{ 
+            newNodeHeader.indexEntryNumber = nodeHeader.indexEntryNumber - mid +1;
+        }
+    }else{
+        memcpy((char*)newPageData+sizeof(NodeHeader), (char*)page+midOffset+sizeof(NodeEntry), nodeHeader.endOfEntries - midOffset - sizeof(NodeEntry));
+        newNodeHeader.endOfEntries = sizeof(NodeHeader) + (nodeHeader.endOfEntries-midOffset- sizeof(NodeEntry));
+        if(nodeHeader.indexEntryNumber %2 == 0) {
+            newNodeHeader.indexEntryNumber = nodeHeader.indexEntryNumber - mid-1;
+        }else {
+            newNodeHeader.indexEntryNumber = nodeHeader.indexEntryNumber - mid;
+        }
+    }
+    if(nodeHeader.indexEntryNumber%2==0){
+        nodeHeader.endOfEntries = midOffset;
+        nodeHeader.indexEntryNumber = mid;
+    }else{
+        nodeHeader.endOfEntries = midOffset;
+        nodeHeader.indexEntryNumber = mid-1;
+    }
+    //set them as chain if leaves
+    //if exists update the node to the right of the old header
+    unsigned newNodePageNum = ixfileHandle.fileHandle.getNumberOfPages();
+    if(nodeHeader.rightPageNum != NULL){
+        void* rightPageData = malloc(PAGE_SIZE);
+        if (ixfileHandle.fileHandle.readPage(nodeHeader.rightPageNum, rightPageData))
+            return IX_READ_FAILED;
+        NodeHeader rightNodeHeader = getNodePageHeader(rightPageData);
+        rightNodeHeader.leftPageNum = newNodePageNum;
+        setNodePageHeader(rightPageData, rightNodeHeader);
+        if(ixfileHandle.fileHandle.writePage(nodeHeader.rightPageNum, rightPageData))
+            return IX_WRITE_FAILED;
+        newNodeHeader.rightPageNum = nodeHeader.rightPageNum;
+    }
+    //set headers
+    nodeHeader.rightPageNum = newNodePageNum;
+    newNodeHeader.leftPageNum = currentPageNum;
+    //create new page if old node is root
+    if(nodeHeader.isRoot == true){
+        nodeHeader.parent = newNodePageNum +1;
+        newNodeHeader.parent = newNodePageNum +1;
+        //make new page
+        void * newRootPage = malloc(PAGE_SIZE);
+        newIndexPage(newRootPage);
+        nodeHeader.isRoot = false;
+        insertInSortedOrder(newRootPage, attribute, key, rid, currentPageNum, newNodePageNum);
+        NodeHeader newRootHeader = getNodePageHeader(newRootPage);
+        newRootHeader.isRoot = true;  
+        setNodePageHeader(newRootPage,newRootHeader);
+        setNodePageHeader(page, nodeHeader);
+        setNodePageHeader(newPageData, newNodeHeader);
+        //write pages 
+        if(ixfileHandle.fileHandle.writePage(currentPageNum, page))
+            return IX_WRITE_FAILED;
+        if(ixfileHandle.fileHandle.appendPage(newPageData))
+            return IX_APPEND_FAILED;
+        if(ixfileHandle.fileHandle.appendPage(newRootPage)){
+            // free(newRootPage);
+            return IX_APPEND_FAILED;
+        }
+    }else{
+        newNodeHeader.parent = nodeHeader.parent;
+        void* parentPageData = malloc(PAGE_SIZE);
+        setNodePageHeader(page, nodeHeader);
+        setNodePageHeader(newPageData, newNodeHeader);
+    //write pages 
+        if(ixfileHandle.fileHandle.writePage(currentPageNum, page))
+            return IX_WRITE_FAILED;
+        if(ixfileHandle.fileHandle.appendPage(newPageData))
+            return IX_APPEND_FAILED;
+        if (ixfileHandle.fileHandle.readPage(parent, parentPageData) != SUCCESS)
+        {
+            free(parentPageData);
+            return IX_READ_FAILED;
+        }
+        NodeHeader parentHeader = getNodePageHeader(parentPageData);
+        if(parentHeader.endOfEntries+sizeof(NodeHeader)>PAGE_SIZE){
+            splitPage(ixfileHandle, parentPageData, parent, parentHeader.parent,attribute, key, rid);
+        }else{
+            insertInSortedOrder(parentPageData, attribute, key, rid, currentPageNum, newNodePageNum);
+            if(ixfileHandle.fileHandle.writePage(parent, parentPageData)){
+                return IX_WRITE_FAILED;
+            }
+        }
+    }
+        // need to update pointers
+
 }
