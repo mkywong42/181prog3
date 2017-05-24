@@ -69,28 +69,31 @@ RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
 {
     //find correct leaf page
     unsigned pageNum = traverse(ixfileHandle, attribute, key);
+// cout<<*((int*)key)<<"pageNum: "<<pageNum<<endl;
     void* pageData = malloc(PAGE_SIZE);
     if (ixfileHandle.fileHandle.readPage(pageNum, pageData))
         return IX_READ_FAILED;
     NodeHeader nodeHeader = getNodePageHeader(pageData);
     //if not enough size
-    if(nodeHeader.endOfEntries+sizeof(NodeHeader)>PAGE_SIZE){
+    if(nodeHeader.endOfEntries+sizeof(NodeEntry)>PAGE_SIZE){
         splitPage(ixfileHandle, pageData, pageNum,nodeHeader.parent,attribute, key, rid);
+        // insertEntry(ixfileHandle, attribute, key, rid);
     }else{
         insertInSortedOrder(pageData, attribute, key, rid, -1, -1);
         if(ixfileHandle.fileHandle.writePage(pageNum,pageData))
             return IX_WRITE_FAILED;
     }
-void* testPageData = malloc(PAGE_SIZE);
-ixfileHandle.fileHandle.readPage(0,testPageData);
-NodeHeader testHeader = getNodePageHeader(testPageData);
-cout<<testHeader.indexEntryNumber<<endl;
-cout<<testHeader.isLeaf<<endl;
-cout<<testHeader.isRoot<<endl;
-NodeEntry tester = getNodeEntry(testPageData, 0);
-cout<<tester.key.intValue<<endl;
-cout<<tester.rid.pageNum<<endl;
-cout<<tester.rid.slotNum<<endl;
+// void* testPageData = malloc(PAGE_SIZE);
+// ixfileHandle.fileHandle.readPage(0,testPageData);
+// NodeHeader testHeader = getNodePageHeader(testPageData);
+// cout<<testHeader.indexEntryNumber<<endl;
+// cout<<testHeader.isLeaf<<endl;
+// // cout<<testHeader.isRoot<<endl;
+// NodeEntry tester = getNodeEntry(testPageData, 0);
+// cout<<tester.key.intValue<<endl;
+// cout<<tester.rid.pageNum<<endl;
+// cout<<tester.rid.slotNum<<endl;
+// printBtree(ixfileHandle, attribute);
     free(pageData);
     return SUCCESS;
 }
