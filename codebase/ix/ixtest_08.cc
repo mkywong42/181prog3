@@ -74,9 +74,9 @@ int testCase_8(const string &indexFileName, const Attribute &attribute)
     {
         count++;
 
-        if (rid.pageNum % 100 == 0) {
+        // if (rid.pageNum % 100 == 0) {
             cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
-        }
+        // }
         if (rid.pageNum < value || rid.slotNum < value * 3)
         {
             cerr << "Wrong entries output... The test failed" << endl;

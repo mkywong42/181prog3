@@ -81,6 +81,8 @@ class IndexManager {
         // Print the B+ tree in pre-order (in a JSON record format)
         void printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const;
 
+        friend class IX_ScanIterator;
+
     protected:
         IndexManager();
         ~IndexManager();
@@ -94,7 +96,7 @@ class IndexManager {
         void setNodePageHeader(void * page, NodeHeader nodeHeader);     //sets the node page header
 
         NodeEntry getNodeEntry(void* page, unsigned entryNum)const;   //returns the node entry on the page corresponding to the pageNum
-        unsigned getRootPageNum(IXFileHandle ixFileHandle)const;     //returns the page number of the root of the tree
+        unsigned getRootPageNum(IXFileHandle ixfileHandle)const;     //returns the page number of the root of the tree
 
         unsigned traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key); //finds the correct leaf based on the key
         unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
@@ -125,6 +127,20 @@ class IX_ScanIterator {
 
         // Terminate index scan
         RC close();
+
+        friend class IndexManager;
+    private:
+        IndexManager *_ix_manager;
+        int currentPage;
+        unsigned currentEntry;
+        unsigned maxPage;
+        unsigned maxEntry;
+        // unsigned totalPage;
+        // unsigned totalEntry;
+        IXFileHandle *ixfileHandle;
+        Attribute attribute;
+        bool includeLow;
+        bool includeHigh;
 };
 
 
@@ -136,7 +152,8 @@ class IXFileHandle {
     unsigned ixReadPageCounter;
     unsigned ixWritePageCounter;
     unsigned ixAppendPageCounter;
-
+    
+    unsigned rootPage;
     // Constructor
     IXFileHandle();
 
@@ -147,6 +164,7 @@ class IXFileHandle {
 	RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
 
     friend class IndexManager;
+    friend class IX_ScanIterator;
     private:
 
     FileHandle fileHandle;
