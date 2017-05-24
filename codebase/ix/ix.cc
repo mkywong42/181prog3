@@ -237,15 +237,15 @@ NodeEntry IndexManager::getNodeEntry(void* page, unsigned entryNum)const{
     return entry;
 }
 
-unsigned IndexManager::getRootPageNum(IXFileHandle ixFileHandle)const{
+unsigned IndexManager::getRootPageNum(IXFileHandle ixfileHandle)const{
     void *pageData = malloc(PAGE_SIZE);
     if (pageData == NULL)
         return IX_MALLOC_FAILED;
     unsigned i;
-    unsigned numPages = ixFileHandle.fileHandle.getNumberOfPages();
+    unsigned numPages = ixfileHandle.fileHandle.getNumberOfPages();
     for (i = 0; i < numPages; i++)
     {
-        if (ixFileHandle.fileHandle.readPage(i, pageData))
+        if (ixfileHandle.fileHandle.readPage(i, pageData))
             return IX_READ_FAILED;  
         
         NodeHeader nodeHeader = getNodePageHeader(pageData);
@@ -260,6 +260,7 @@ unsigned IndexManager::getRootPageNum(IXFileHandle ixFileHandle)const{
 unsigned IndexManager::traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key){
     bool atLeaf = false;
     unsigned currentPage = getRootPageNum(ixfileHandle);
+// cout<<"current page: "<<currentPage<<endl;
     // parent = currentPage;
     while(atLeaf == false){
         void* pageData = malloc(PAGE_SIZE);
@@ -276,18 +277,23 @@ unsigned IndexManager::traverse(IXFileHandle &ixfileHandle, const Attribute &att
         }
         //find correct entry
         unsigned entryNumber = findPointerEntry(pageData, attribute, key);
+// cout<<"currentPages entryNumber: "<<entryNumber<<endl;
         //decide where to go
         NodeEntry entry = getNodeEntry(pageData, entryNumber);
+// cout<<"currentPages first entry's key: "<<entry.key.intValue<<endl;
         int result = compare(attribute,entry, key);
         //set current page
         // parent = currentPage;
         if(result > 0){
             currentPage = entry.leftChildPageNum;
+// cout<<"going to left child"<<endl;
         }else{
             currentPage = entry.rightChildPageNum;
+// cout<<"going to right child: "<<currentPage<<endl;
+// cout<<"entry key: "<<entry.key.intValue<<endl;
+// cout<<"entry rid: "<<entry.rid.slotNum<<endl;
         }
         free(pageData);
-        //need more??-------------------------------------------
     }
     return currentPage;
 }
@@ -297,8 +303,9 @@ unsigned IndexManager::findPointerEntry(void* page, const Attribute &attribute, 
     unsigned i;
     for(i=0; i<nodeHeader.indexEntryNumber; i++){
         NodeEntry entry = getNodeEntry(page, i);
-        unsigned result = compare(attribute, entry, key);
-        if(result > 0){
+        int result = compare(attribute, entry, key);
+// cout<<"result: "<<result<<endl;
+        if(result > 0 || i==nodeHeader.indexEntryNumber-1){
             break;
         }
     }
@@ -306,6 +313,7 @@ unsigned IndexManager::findPointerEntry(void* page, const Attribute &attribute, 
 }
 
 //returns -1 if entry.key is less than key, returns 1 otherwise
+//sign points at whatever is smaller
 int IndexManager::compare(const Attribute &attribute, NodeEntry &entry, const void *key){
     if(attribute.type == TypeVarChar){
         int lengthOfVarChar;
@@ -317,19 +325,23 @@ int IndexManager::compare(const Attribute &attribute, NodeEntry &entry, const vo
         return strcmp(entry.key.strValue, varCharBuffer);
     }else if(attribute.type == TypeReal){
         if(entry.key.floatValue<*((float*)key)){return -1;}
-        else {return 1;}                            //need to define key
+        else if(entry.key.floatValue==*((float*)key)){return 0;}
+        else {return 1;}                            
     }else{
-        if(entry.key.intValue<*((int*)key)){ return -1;}     //need to define key
+// cout<<"entry value: "<<entry.key.intValue<<" key: "<<*((int*)key)<<endl;
+        if(entry.key.intValue<*((int*)key)){ return -1;}     
+        else if(entry.key.intValue == *((int*)key)){return 0;}
         else {return 1;}
     }
-    return 0;
-
 }
 
 void IndexManager::setEntryAtOffset(void* page, unsigned offset, NodeEntry &entry){
     NodeHeader nodeHeader = getNodePageHeader(page);
-    unsigned movingBlockSize = nodeHeader.endOfEntries - offset;
+// cout<<"end of entries: "<<nodeHeader.endOfEntries<<" offset: "<<offset<<endl;
+    int movingBlockSize = nodeHeader.endOfEntries - offset;
+// cout<<"movingblocksize: "<<movingBlockSize<<endl;
     memmove((char*)page+offset+sizeof(NodeEntry), (char*)page+offset, movingBlockSize);
+    
     memcpy((char*)page + offset, &entry, sizeof(NodeEntry));
 }
 
@@ -338,6 +350,9 @@ void IndexManager::insertInSortedOrder(void* page, const Attribute &attribute, c
     //find correct place
     NodeHeader nodeHeader = getNodePageHeader(page);
     unsigned entryNum = findPointerEntry(page, attribute, key);
+    NodeEntry testEntry = getNodeEntry(page, entryNum);
+    if(compare(attribute, testEntry, key)<0  && nodeHeader.indexEntryNumber !=0) entryNum++;
+// cout<<"entryNum: "<<entryNum<<endl;
     unsigned offset = sizeof(NodeHeader) + entryNum * sizeof(NodeEntry);
     //insert entry
     NodeEntry entry;
@@ -367,9 +382,9 @@ void IndexManager::insertInSortedOrder(void* page, const Attribute &attribute, c
 unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigned currentPageNum, unsigned parent, const Attribute &attribute, const void *key, const RID &rid){
     NodeHeader nodeHeader = getNodePageHeader(page);
     //get mid of old page
-    unsigned mid = ceil((double) nodeHeader.indexEntryNumber / 2);
+    unsigned mid = floor((double) nodeHeader.indexEntryNumber / 2);
     unsigned midOffset = sizeof(NodeHeader) + mid * sizeof(NodeEntry);
-    // NodeEntry midEntry = getNodeEntry(page, mid);
+    NodeEntry midEntry = getNodeEntry(page, mid);
     //make new page
     void * newPageData = calloc(PAGE_SIZE, 1);
     if (newPageData == NULL)
@@ -396,13 +411,13 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
             newNodeHeader.indexEntryNumber = nodeHeader.indexEntryNumber - mid;
         }
     }
-    if(nodeHeader.indexEntryNumber%2==0){
+    // if(nodeHeader.indexEntryNumber%2==0){        //check============================
         nodeHeader.endOfEntries = midOffset;
         nodeHeader.indexEntryNumber = mid;
-    }else{
-        nodeHeader.endOfEntries = midOffset;
-        nodeHeader.indexEntryNumber = mid-1;
-    }
+    // }else{
+    //     nodeHeader.endOfEntries = midOffset;
+    //     nodeHeader.indexEntryNumber = mid;
+    // }
     //set them as chain if leaves
     //if exists update the node to the right of the old header
     unsigned newNodePageNum = ixfileHandle.fileHandle.getNumberOfPages();
@@ -415,25 +430,48 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
         setNodePageHeader(rightPageData, rightNodeHeader);
         if(ixfileHandle.fileHandle.writePage(nodeHeader.rightPageNum, rightPageData))
             return IX_WRITE_FAILED;
-        newNodeHeader.rightPageNum = nodeHeader.rightPageNum;
     }
+    newNodeHeader.rightPageNum = nodeHeader.rightPageNum;
     //set headers
     nodeHeader.rightPageNum = newNodePageNum;
     newNodeHeader.leftPageNum = currentPageNum;
-    //create new page if old node is root
+    //create new page if old node is root 
+
     if(nodeHeader.isRoot == true){
+    // if(currentPageNum.isRoot == true){
         nodeHeader.parent = newNodePageNum +1;
         newNodeHeader.parent = newNodePageNum +1;
         //make new page
         void * newRootPage = malloc(PAGE_SIZE);
         newIndexPage(newRootPage);
         nodeHeader.isRoot = false;
-        insertInSortedOrder(newRootPage, attribute, key, rid, currentPageNum, newNodePageNum);
+        if(attribute.type == TypeVarChar){
+            insertInSortedOrder(newRootPage, attribute, midEntry.key.strValue, midEntry.rid, currentPageNum, newNodePageNum);
+        }else if(attribute.type == TypeReal){
+            insertInSortedOrder(newRootPage, attribute, &(midEntry.key.floatValue), midEntry.rid, currentPageNum, newNodePageNum);
+        }else{
+            insertInSortedOrder(newRootPage, attribute, &(midEntry.key.intValue), midEntry.rid, currentPageNum, newNodePageNum);
+        }
         NodeHeader newRootHeader = getNodePageHeader(newRootPage);
         newRootHeader.isRoot = true;  
+        // ixfileHandle.rootPage = newNodePageNum +1;
         setNodePageHeader(newRootPage,newRootHeader);
         setNodePageHeader(page, nodeHeader);
         setNodePageHeader(newPageData, newNodeHeader);
+        int result = compare(attribute, midEntry, key);
+        if(nodeHeader.isLeaf==true){
+            if(result < 0){
+                insertInSortedOrder(newPageData,attribute,key,rid,-1,-1);
+            }else{
+                insertInSortedOrder(page,attribute,key,rid,-1,-1);
+            }
+        }else{
+            if(result < 0){
+                insertInSortedOrder(newPageData,attribute,key,rid,currentPageNum,newNodePageNum);
+            }else{
+                insertInSortedOrder(page,attribute,key,rid,currentPageNum,newNodePageNum);
+            }
+        }
         //write pages 
         if(ixfileHandle.fileHandle.writePage(currentPageNum, page))
             return IX_WRITE_FAILED;
@@ -445,10 +483,24 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
         }
     }else{
         newNodeHeader.parent = nodeHeader.parent;
-        void* parentPageData = malloc(PAGE_SIZE);
         setNodePageHeader(page, nodeHeader);
         setNodePageHeader(newPageData, newNodeHeader);
+        int result = compare(attribute, midEntry, key);
+        if(nodeHeader.isLeaf==true){
+            if(result < 0){
+                insertInSortedOrder(newPageData,attribute,key,rid,-1,-1);
+            }else{
+                insertInSortedOrder(page,attribute,key,rid,-1,-1);
+            }
+        }else{
+            if(result < 0){
+                insertInSortedOrder(newPageData,attribute,key,rid,currentPageNum,newNodePageNum);
+            }else{
+                insertInSortedOrder(page,attribute,key,rid,currentPageNum,newNodePageNum);
+            }
+        }
     //write pages 
+        void* parentPageData = malloc(PAGE_SIZE);
         if(ixfileHandle.fileHandle.writePage(currentPageNum, page))
             return IX_WRITE_FAILED;
         if(ixfileHandle.fileHandle.appendPage(newPageData))
@@ -459,15 +511,19 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
             return IX_READ_FAILED;
         }
         NodeHeader parentHeader = getNodePageHeader(parentPageData);
-        if(parentHeader.endOfEntries+sizeof(NodeHeader)>PAGE_SIZE){
+        if(parentHeader.endOfEntries+sizeof(NodeEntry)>PAGE_SIZE){
             splitPage(ixfileHandle, parentPageData, parent, parentHeader.parent,attribute, key, rid);
         }else{
-            insertInSortedOrder(parentPageData, attribute, key, rid, currentPageNum, newNodePageNum);
+            if(attribute.type == TypeVarChar){
+                insertInSortedOrder(parentPageData, attribute, midEntry.key.strValue, midEntry.rid, currentPageNum, newNodePageNum);
+            }else if(attribute.type == TypeReal){
+                insertInSortedOrder(parentPageData, attribute, &(midEntry.key.floatValue), midEntry.rid, currentPageNum, newNodePageNum);
+            }else{
+                insertInSortedOrder(parentPageData, attribute, &(midEntry.key.intValue), midEntry.rid, currentPageNum, newNodePageNum);
+            }
             if(ixfileHandle.fileHandle.writePage(parent, parentPageData)){
                 return IX_WRITE_FAILED;
             }
         }
     }
-        // need to update pointers?
-
 }
