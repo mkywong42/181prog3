@@ -128,7 +128,7 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
         NodeEntry current = getNodeEntry(lowPageData, ix_ScanIterator.currentEntry);
         if(compare(attribute, current, lowKey)== 0 && lowKeyInclusive == false){
             //get next slot
-cout<<"got next slot"<<endl;
+// cout<<"got next slot"<<endl;
             ix_ScanIterator.currentEntry ++;
             if(ix_ScanIterator.currentEntry > nodeHeader.indexEntryNumber){
                 ix_ScanIterator.currentEntry=0;
