@@ -33,7 +33,7 @@ RC IndexManager::createFile(const string &fileName)
         return IX_MALLOC_FAILED;
     newIndexPage(firstPageData);
     NodeHeader nodeHeader = getNodePageHeader(firstPageData);
-    nodeHeader.isRoot = true;
+    // nodeHeader.isRoot = true;
     nodeHeader.isLeaf = true;
     setNodePageHeader(firstPageData, nodeHeader);
 
@@ -56,7 +56,11 @@ RC IndexManager::destroyFile(const string &fileName)
 
 RC IndexManager::openFile(const string &fileName, IXFileHandle &ixfileHandle)
 {
-    return _pf_manager->openFile(fileName.c_str(), ixfileHandle.fileHandle);
+    if(_pf_manager->openFile(fileName.c_str(), ixfileHandle.fileHandle))
+        return IX_OPEN_FAILED;
+    ixfileHandle.rootPage = 0;
+    return SUCCESS;
+    // return _pf_manager->openFile(fileName.c_str(), ixfileHandle.fileHandle)
 }
 
 RC IndexManager::closeFile(IXFileHandle &ixfileHandle)
@@ -120,9 +124,10 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
         bool        	highKeyInclusive,
         IX_ScanIterator &ix_ScanIterator)
 {
-    // if(ixfileHandle.fileHandle==NULL){       //check if fileHandle exists
-    //     return -1;
-    // }
+    if(ixfileHandle.rootPage<0){       //check if fileHandle exists
+        return IX_FILE_DNE;
+    }
+    
     if(lowKey == NULL){
         ix_ScanIterator.currentPage = 0;
         ix_ScanIterator.currentEntry = 0;
@@ -322,7 +327,8 @@ IXFileHandle::IXFileHandle()
     ixReadPageCounter = 0; 
     ixWritePageCounter = 0;
     ixAppendPageCounter = 0;
-    // rootPage =0;
+    rootPage =-1;
+    // fileHandle = 0;
 }
 
 IXFileHandle::~IXFileHandle()
@@ -348,7 +354,7 @@ void IndexManager::newIndexPage(void * page)
     nodeHeader.endOfEntries = sizeof(NodeHeader);
     nodeHeader.indexEntryNumber = 0;
     nodeHeader.isLeaf = false;
-    nodeHeader.isRoot = false;
+    // nodeHeader.isRoot = false;
     nodeHeader.leftPageNum = -1;
     nodeHeader.rightPageNum = -1;
     nodeHeader.parent = -1;
@@ -373,23 +379,24 @@ NodeEntry IndexManager::getNodeEntry(void* page, unsigned entryNum)const{
 }
 
 unsigned IndexManager::getRootPageNum(IXFileHandle ixfileHandle)const{
-    void *pageData = malloc(PAGE_SIZE);
-    if (pageData == NULL)
-        return IX_MALLOC_FAILED;
-    unsigned i;
-    unsigned numPages = ixfileHandle.fileHandle.getNumberOfPages();
-    for (i = 0; i < numPages; i++)
-    {
-        if (ixfileHandle.fileHandle.readPage(i, pageData))
-            return IX_READ_FAILED;  
+    // void *pageData = malloc(PAGE_SIZE);
+    // if (pageData == NULL)
+    //     return IX_MALLOC_FAILED;
+    // unsigned i;
+    // unsigned numPages = ixfileHandle.fileHandle.getNumberOfPages();
+    // for (i = 0; i < numPages; i++)
+    // {
+    //     if (ixfileHandle.fileHandle.readPage(i, pageData))
+    //         return IX_READ_FAILED;  
         
-        NodeHeader nodeHeader = getNodePageHeader(pageData);
-        if(nodeHeader.isRoot == true){
-            break;
-        }
-    }
-    free(pageData);
-    return i;
+    //     NodeHeader nodeHeader = getNodePageHeader(pageData);
+    //     if(nodeHeader.isRoot == true){
+    //         break;
+    //     }
+    // }
+    // free(pageData);
+    // return i;
+    return ixfileHandle.rootPage;
 }
 
 unsigned IndexManager::traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key){
@@ -649,14 +656,14 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
     nodeHeader.rightPageNum = newNodePageNum;
     newNodeHeader.leftPageNum = currentPageNum;
     //create new page if old node is root 
-    if(nodeHeader.isRoot == true){
-    // if(currentPageNum.isRoot == true){
+    // if(nodeHeader.isRoot == true){
+    if(currentPageNum == getRootPageNum(ixfileHandle)){
         nodeHeader.parent = newNodePageNum +1;
         newNodeHeader.parent = newNodePageNum +1;
         //make new page
         void * newRootPage = malloc(PAGE_SIZE);
         newIndexPage(newRootPage);
-        nodeHeader.isRoot = false;
+        // nodeHeader.isRoot = false;
         if(attribute.type == TypeVarChar){
             insertInParent(newRootPage, attribute, midEntry.key.strValue, midEntry.rid, currentPageNum, newNodePageNum);
         }else if(attribute.type == TypeReal){
@@ -665,8 +672,8 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
             insertInParent(newRootPage, attribute, &(midEntry.key.intValue), midEntry.rid, currentPageNum, newNodePageNum);
         }
         NodeHeader newRootHeader = getNodePageHeader(newRootPage);
-        newRootHeader.isRoot = true;  
-        // ixfileHandle.rootPage = newNodePageNum +1;
+        // newRootHeader.isRoot = true;  
+        ixfileHandle.rootPage = newNodePageNum +1;
         setNodePageHeader(newRootPage,newRootHeader);
         setNodePageHeader(page, nodeHeader);
         setNodePageHeader(newPageData, newNodeHeader);

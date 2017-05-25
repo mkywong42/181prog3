@@ -18,7 +18,8 @@
 # define  IX_CREATE_FAILED 5
 # define  IX_READ_FAILED 6
 # define  IX_WRITE_FAILED 7
-# define IX_DELETION_DNE 8
+# define  IX_DELETION_DNE 8
+# define  IX_FILE_DNE 9
 
 class IX_ScanIterator;
 class IXFileHandle;
@@ -28,7 +29,7 @@ typedef struct NodeHeader      //page header
     uint16_t endOfEntries;
     uint16_t indexEntryNumber;
     bool isLeaf;
-    bool isRoot;
+    // bool isRoot;
     int16_t leftPageNum;
     int16_t rightPageNum;
     int16_t parent;
@@ -103,7 +104,7 @@ class IndexManager {
         unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
                                                                                                 //less than the specified key
         unsigned findPointerEntryInParent(void* page, const Attribute &attribute, const void *key);
-        
+
         int compare(const Attribute &attribute, NodeEntry &entry, const void *key);      //returns -1 if entry.key is less, 1 otherwise
         int compareInParent(const Attribute &attribute, NodeEntry &entry, const void *key);
 
@@ -158,7 +159,7 @@ class IXFileHandle {
     unsigned ixWritePageCounter;
     unsigned ixAppendPageCounter;
     
-    unsigned rootPage;
+    int rootPage;
     // Constructor
     IXFileHandle();
 
