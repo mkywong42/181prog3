@@ -70,7 +70,7 @@ int testCase_10(const string &indexFileName, const Attribute &attribute)
         }
         outRidSlotNumSum += rid.slotNum;
     }
-
+    
     // Inconsistency?
     if (inRidSlotNumSum != outRidSlotNumSum)
     {

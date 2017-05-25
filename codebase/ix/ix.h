@@ -18,6 +18,7 @@
 # define  IX_CREATE_FAILED 5
 # define  IX_READ_FAILED 6
 # define  IX_WRITE_FAILED 7
+# define IX_DELETION_DNE 8
 
 class IX_ScanIterator;
 class IXFileHandle;
@@ -101,15 +102,23 @@ class IndexManager {
         unsigned traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key); //finds the correct leaf based on the key
         unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
                                                                                                 //less than the specified key
+        unsigned findPointerEntryInParent(void* page, const Attribute &attribute, const void *key);
+        
         int compare(const Attribute &attribute, NodeEntry &entry, const void *key);      //returns -1 if entry.key is less, 1 otherwise
+        int compareInParent(const Attribute &attribute, NodeEntry &entry, const void *key);
 
         void setEntryAtOffset(void* page, unsigned offset, NodeEntry &entry);        //moves all the entries after the entry and inserts the entry at the offset
                                                                                     //does not update the page header
         void insertInSortedOrder(void* page,const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
+        void insertInParent(void* page, const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
+
         unsigned splitPage(IXFileHandle &ixfileHandle, void* page, unsigned currentPageNum, 
                 unsigned parent, const Attribute &attribute, const void *key,const RID &rid);
 
         void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum, unsigned tabs)const;
+    
+        int getDeletionSlotNum(void* page, const Attribute &attribute, const void* key);
+        void deleteEntryAtOffset(void* page, unsigned offset);
 };
 
 
@@ -135,12 +144,8 @@ class IX_ScanIterator {
         unsigned currentEntry;
         unsigned maxPage;
         unsigned maxEntry;
-        // unsigned totalPage;
-        // unsigned totalEntry;
         IXFileHandle *ixfileHandle;
         Attribute attribute;
-        bool includeLow;
-        bool includeHigh;
 };
 
 

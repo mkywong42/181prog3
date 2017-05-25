@@ -38,6 +38,7 @@ int testCase_11(const string &indexFileName, const Attribute &attribute){
     // insert entries
     for(unsigned i = 0; i <= numOfTuples; i++)
     {
+cout<<i<<endl;
         key = i; 
         rid.pageNum = key + 1;
         rid.slotNum = key + 2;

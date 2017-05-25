@@ -76,17 +76,14 @@ int testCase_9(const string &indexFileName, const Attribute &attribute) {
     unsigned count = 0;
     while (ix_ScanIterator.getNextEntry(rid, &key) == success) {
         count++;
-        // if (rid.pageNum % 500 == 0) {
-            // cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
-        // }
-if(key<100) cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum <<" key: "<<key<< endl;
+        if (rid.pageNum % 500 == 0) {
+            cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
+        }
         outRidSlotNumSum += rid.slotNum;
     }
 
     // Inconsistency between input and output?
     if (inRidSlotNumSum != outRidSlotNumSum) {
-cout<<"in: "<<inRidSlotNumSum<<endl;
-cout<<"out: "<<outRidSlotNumSum<<endl;
         cerr << "Wrong entries output... The test failed" << endl;
         rc = ix_ScanIterator.close();
         rc = indexManager->closeFile(ixfileHandle);
