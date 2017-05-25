@@ -156,8 +156,9 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
         void* highPageData = malloc(PAGE_SIZE);
         if(ixfileHandle.fileHandle.readPage(ix_ScanIterator.maxPage, highPageData))
             return IX_READ_FAILED;
-        ix_ScanIterator.maxEntry = findPointerEntry(highPageData, attribute,highKey)+1;     //check--------------   
+        ix_ScanIterator.maxEntry = findPointerEntry(highPageData, attribute,highKey)+1;
         NodeEntry current = getNodeEntry(highPageData,ix_ScanIterator.maxEntry);
+cout<<"current key: "<<current.key.floatValue<<endl;
         NodeHeader nodeHeader = getNodePageHeader(highPageData);
         if(compare(attribute, current, highKey)==0 && highKeyInclusive==false){
             //get next slot
@@ -184,7 +185,8 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
 
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
     unsigned rootPage = getRootPageNum(ixfileHandle);
-    printRecursively(ixfileHandle, attribute, rootPage); 
+    unsigned tabs = 0;
+    printRecursively(ixfileHandle, attribute, rootPage, tabs); 
 // void* temp = malloc(PAGE_SIZE);
 // ixfileHandle.fileHandle.readPage(rootPage, temp);
 // NodeHeader nodeHeader = getNodePageHeader(temp);
@@ -195,7 +197,7 @@ void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attri
 // cout<<"right: "<<nodeEntry.rightChildPageNum<<endl;
 }
 
-void IndexManager::printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum)const{
+void IndexManager::printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum, unsigned tabs)const{
     if(pageNum<0){
         return;          //check ----------------------------------
     }
@@ -203,6 +205,9 @@ void IndexManager::printRecursively(IXFileHandle &ixfileHandle, const Attribute 
     ixfileHandle.fileHandle.readPage(pageNum, pageData);
     NodeHeader nodeHeader = getNodePageHeader(pageData);
     if(nodeHeader.isLeaf==false){
+        for(unsigned tabCount = 0;tabCount <tabs; tabCount ++){
+            cout<<"\t";
+        }
         cout<<"{\"keys\": [";
         for(unsigned i = 0; i<nodeHeader.indexEntryNumber; i++){
             cout<<"\"";
@@ -218,11 +223,20 @@ void IndexManager::printRecursively(IXFileHandle &ixfileHandle, const Attribute 
             if(i != nodeHeader.indexEntryNumber-1) cout<<",";
         }
         cout<<"],"<<endl;
+        for(unsigned tabCount = 0;tabCount <tabs; tabCount ++){
+            cout<<"\t";
+        }
         cout<<"\"children\":["<<endl;
-        // printRecursively(ixfileHandle, attribute, nodeHeader.leftChildPageNum);
-        // printRecursively(ixfileHandle, attribute, nodeHeader.rightChildPageNum);
+        for(unsigned i = 0;i<nodeHeader.indexEntryNumber;i++){
+            NodeEntry printingNode = getNodeEntry(pageData, i);
+            printRecursively(ixfileHandle, attribute, printingNode.leftChildPageNum, tabs+1);
+            printRecursively(ixfileHandle, attribute, printingNode.rightChildPageNum, tabs+1);
+        }
         cout<<"]}"<<endl;
     }else{
+        for(unsigned tabCount = 0;tabCount <tabs; tabCount ++){
+            cout<<"\t";
+        }
         cout<<"{\"keys\": [";
         for(unsigned i = 0; i<nodeHeader.indexEntryNumber;i++){
             cout<<"\"";

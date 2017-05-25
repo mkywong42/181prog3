@@ -77,8 +77,9 @@ int testCase_9(const string &indexFileName, const Attribute &attribute) {
     while (ix_ScanIterator.getNextEntry(rid, &key) == success) {
         count++;
         // if (rid.pageNum % 500 == 0) {
-            cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
+            // cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
         // }
+if(key<100) cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum <<" key: "<<key<< endl;
         outRidSlotNumSum += rid.slotNum;
     }
 

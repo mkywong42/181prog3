@@ -109,7 +109,7 @@ class IndexManager {
         unsigned splitPage(IXFileHandle &ixfileHandle, void* page, unsigned currentPageNum, 
                 unsigned parent, const Attribute &attribute, const void *key,const RID &rid);
 
-        void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum)const;
+        void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum, unsigned tabs)const;
 };
 
 
