@@ -6,7 +6,7 @@ Team number (e.g., 01) :
 #2 Student Name : 
 
 2. Meta-data page in an index file
-- Show your meta-data page of an index design if you have any. 
+    Our meta data for the index is s
 
 
 3. Index Entry Format

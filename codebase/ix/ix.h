@@ -18,19 +18,27 @@
 # define  IX_CREATE_FAILED 5
 # define  IX_READ_FAILED 6
 # define  IX_WRITE_FAILED 7
+# define  IX_DELETION_DNE 8
+# define  IX_FILE_DNE 9
+# define  IX_SCANNER_CLOSED 10
 
 class IX_ScanIterator;
 class IXFileHandle;
 
 typedef struct NodeHeader      //page header
 {
-    uint16_t endOfEntries;
-    uint16_t indexEntryNumber;
+    uint32_t endOfEntries;
+    uint32_t indexEntryNumber;
     bool isLeaf;
-    bool isRoot;
     int16_t leftPageNum;
     int16_t rightPageNum;
     int16_t parent;
+    // uint32_t endOfEntries;
+    // uint32_t indexEntryNumber;
+    // bool isLeaf;
+    // int leftPageNum;
+    // int rightPageNum;
+    // int parent;
 } NodeHeader;
 
 typedef struct NodeEntry {
@@ -41,8 +49,8 @@ typedef struct NodeEntry {
         float floatValue;
         char* strValue;
     }key;
-    int16_t leftChildPageNum;
-    int16_t rightChildPageNum;
+    int leftChildPageNum;
+    int rightChildPageNum;
 } NodeEntry;
 
 class IndexManager {
@@ -81,6 +89,8 @@ class IndexManager {
         // Print the B+ tree in pre-order (in a JSON record format)
         void printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const;
 
+        friend class IX_ScanIterator;
+
     protected:
         IndexManager();
         ~IndexManager();
@@ -94,20 +104,28 @@ class IndexManager {
         void setNodePageHeader(void * page, NodeHeader nodeHeader);     //sets the node page header
 
         NodeEntry getNodeEntry(void* page, unsigned entryNum)const;   //returns the node entry on the page corresponding to the pageNum
-        unsigned getRootPageNum(IXFileHandle ixFileHandle)const;     //returns the page number of the root of the tree
+        unsigned getRootPageNum(IXFileHandle ixfileHandle)const;     //returns the page number of the root of the tree
 
         unsigned traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key); //finds the correct leaf based on the key
         unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
                                                                                                 //less than the specified key
+        unsigned findPointerEntryInParent(void* page, const Attribute &attribute, const void *key);
+
         int compare(const Attribute &attribute, NodeEntry &entry, const void *key);      //returns -1 if entry.key is less, 1 otherwise
+        int compareInParent(const Attribute &attribute, NodeEntry &entry, const void *key);
 
         void setEntryAtOffset(void* page, unsigned offset, NodeEntry &entry);        //moves all the entries after the entry and inserts the entry at the offset
                                                                                     //does not update the page header
         void insertInSortedOrder(void* page,const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
+        void insertInParent(void* page, const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
+
         unsigned splitPage(IXFileHandle &ixfileHandle, void* page, unsigned currentPageNum, 
                 unsigned parent, const Attribute &attribute, const void *key,const RID &rid);
 
-        void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum)const;
+        void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum, unsigned tabs)const;
+    
+        int getDeletionSlotNum(void* page, const Attribute &attribute, const void* key);
+        void deleteEntryAtOffset(void* page, unsigned entryNum, unsigned offset, const Attribute &attribute);
 };
 
 
@@ -125,6 +143,17 @@ class IX_ScanIterator {
 
         // Terminate index scan
         RC close();
+
+        friend class IndexManager;
+    private:
+        IndexManager *_ix_manager;
+        int currentPage;
+        unsigned currentEntry;
+        unsigned maxPage;
+        unsigned maxEntry;
+        IXFileHandle *ixfileHandle;
+        Attribute attribute;
+        bool closed;
 };
 
 
@@ -136,7 +165,8 @@ class IXFileHandle {
     unsigned ixReadPageCounter;
     unsigned ixWritePageCounter;
     unsigned ixAppendPageCounter;
-
+    
+    int rootPage;
     // Constructor
     IXFileHandle();
 
@@ -147,6 +177,7 @@ class IXFileHandle {
 	RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);
 
     friend class IndexManager;
+    friend class IX_ScanIterator;
     private:
 
     FileHandle fileHandle;

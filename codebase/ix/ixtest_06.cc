@@ -27,7 +27,7 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
     unsigned key;
     int inRidSlotNumSum = 0;
     int outRidSlotNumSum = 0;
-    unsigned numOfTuples = 1000;
+    unsigned numOfTuples = 1000;      
 
     // create index file
     RC rc = indexManager->createFile(indexFileName);
@@ -60,12 +60,12 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
     {
         count++;
 
-        if (rid.pageNum % 200 == 0) {
+        if (rid.pageNum % 200 == 0) {    
             cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
         }
         outRidSlotNumSum += rid.slotNum;
     }
-
+indexManager->printBtree(ixfileHandle, attribute);
     // Inconsistency between insert and scan?
     if (inRidSlotNumSum != outRidSlotNumSum)
     {

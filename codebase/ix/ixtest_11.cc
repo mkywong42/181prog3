@@ -38,6 +38,7 @@ int testCase_11(const string &indexFileName, const Attribute &attribute){
     // insert entries
     for(unsigned i = 0; i <= numOfTuples; i++)
     {
+// cout<<"insert counter: "<<i<<endl;
         key = i; 
         rid.pageNum = key + 1;
         rid.slotNum = key + 2;
@@ -78,12 +79,13 @@ int testCase_11(const string &indexFileName, const Attribute &attribute){
         rc = indexManager->closeFile(ixfileHandle);
         return fail;
     }
-
+// indexManager->printBtree(ixfileHandle, attribute);
     // Delete some tuples
     cerr << endl;
     unsigned deletedRecordNum = 0;
     for(unsigned i = 5; i <= numOfTuples; i += 10)
     {
+// cout<<"delete counter: "<<deletedRecordNum<<endl;
         key = i; 
         rid.pageNum = key + 1;
         rid.slotNum = key + 2;
