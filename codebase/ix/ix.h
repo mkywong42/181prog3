@@ -20,19 +20,25 @@
 # define  IX_WRITE_FAILED 7
 # define  IX_DELETION_DNE 8
 # define  IX_FILE_DNE 9
+# define  IX_SCANNER_CLOSED 10
 
 class IX_ScanIterator;
 class IXFileHandle;
 
 typedef struct NodeHeader      //page header
 {
-    uint16_t endOfEntries;
-    uint16_t indexEntryNumber;
+    uint32_t endOfEntries;
+    uint32_t indexEntryNumber;
     bool isLeaf;
-    // bool isRoot;
     int16_t leftPageNum;
     int16_t rightPageNum;
     int16_t parent;
+    // uint32_t endOfEntries;
+    // uint32_t indexEntryNumber;
+    // bool isLeaf;
+    // int leftPageNum;
+    // int rightPageNum;
+    // int parent;
 } NodeHeader;
 
 typedef struct NodeEntry {
@@ -43,8 +49,8 @@ typedef struct NodeEntry {
         float floatValue;
         char* strValue;
     }key;
-    int16_t leftChildPageNum;
-    int16_t rightChildPageNum;
+    int leftChildPageNum;
+    int rightChildPageNum;
 } NodeEntry;
 
 class IndexManager {
@@ -119,7 +125,7 @@ class IndexManager {
         void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum, unsigned tabs)const;
     
         int getDeletionSlotNum(void* page, const Attribute &attribute, const void* key);
-        void deleteEntryAtOffset(void* page, unsigned offset);
+        void deleteEntryAtOffset(void* page, unsigned entryNum, unsigned offset, const Attribute &attribute);
 };
 
 
@@ -147,6 +153,7 @@ class IX_ScanIterator {
         unsigned maxEntry;
         IXFileHandle *ixfileHandle;
         Attribute attribute;
+        bool closed;
 };
 
 
