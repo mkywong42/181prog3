@@ -89,7 +89,35 @@ RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
 
 RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
 {
+    unsigned pageNum = traverse(ixfileHandle, attribute, key);
+    void* pageData = malloc(PAGE_SIZE);
+    if (ixfileHandle.fileHandle.readPage(pageNum, pageData))
+        return IX_READ_FAILED;
+    NodeHeader nodeHeader = getNodePageHeader(pageData);
+    unsigned entryMatch = findMatchEntry(pageData, attribute, key);
+    if(entryMatch == -1){
+        return IX_DELETE_FAILED; // entry doesn't exist so do nothing
+    }
+
+
+    unsigned offset = sizeof(NodeHeader) + entryMatch * sizeof(NodeEntry);
+
+    deleteEntryAtOffset(pageData, offset);
+
+    //update node page header
+    nodeHeader.indexEntryNumber--;
+    nodeHeader.endOfEntries-=sizeof(NodeEntry);
+    setNodePageHeader(pageData, nodeHeader);
+
+    if(ixfileHandle.fileHandle.writePage(pageNum,pageData))
+            return IX_WRITE_FAILED;
+
+    free(pageData);
+    return SUCCESS;
+
 }
+
+
 
 
 RC IndexManager::scan(IXFileHandle &ixfileHandle,
@@ -307,6 +335,34 @@ unsigned IndexManager::findPointerEntry(void* page, const Attribute &attribute, 
         }
     }
     return i;
+}
+
+unsigned IndexManager::findMatchEntry(void*page, const Attribute &attribute, const void *key){
+    NodeHeader nodeHeader = getNodePageHeader(page);
+    bool match = false;
+    unsigned j;
+    for(j=0; j<nodeHeader.indexEntryNumber; j++){
+        NodeEntry entry = getNodeEntry(page, j);
+        int result = compare(attribute, entry, key);
+        if(result == 0){
+            match = true;
+            break;
+        }
+    }
+    if(match == true){
+        return j;
+    }else{
+       return -1; 
+    }
+}
+
+void IndexManager::deleteEntryAtOffset(void* page, unsigned offset){
+    NodeHeader nodeHeader = getNodePageHeader(page);
+    int movingBlockSize = nodeHeader.endOfEntries - offset - sizeof(NodeEntry);
+    if(movingBlockSize){ // if entry isn't the last entry
+        memmove((char*)page+offset, (char*)page+offset+sizeof(NodeEntry), movingBlockSize);
+    }
+
 }
 
 unsigned IndexManager::findPointerEntryInParent(void* page, const Attribute &attribute, const void *key){

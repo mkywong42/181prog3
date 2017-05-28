@@ -21,6 +21,7 @@
 # define  IX_DELETION_DNE 8
 # define  IX_FILE_DNE 9
 # define  IX_SCANNER_CLOSED 10
+# define  IX_DELETE_FAILED 11
 
 class IX_ScanIterator;
 class IXFileHandle;
@@ -109,6 +110,10 @@ class IndexManager {
         unsigned traverse(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key); //finds the correct leaf based on the key
         unsigned findPointerEntry(void* page, const Attribute &attribute, const void *key);     //returns the entry number of the first entry with a key not
                                                                                                 //less than the specified key
+
+        unsigned findMatchEntry(void* page, const Attribute &attribute, const void *key);
+        void deleteEntryAtOffset(void* page, unsigned offset);
+
         unsigned findPointerEntryInParent(void* page, const Attribute &attribute, const void *key);
 
         int compare(const Attribute &attribute, NodeEntry &entry, const void *key);      //returns -1 if entry.key is less, 1 otherwise
@@ -116,6 +121,7 @@ class IndexManager {
 
         void setEntryAtOffset(void* page, unsigned offset, NodeEntry &entry);        //moves all the entries after the entry and inserts the entry at the offset
                                                                                     //does not update the page header
+
         void insertInSortedOrder(void* page,const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
         void insertInParent(void* page, const Attribute &attribute, const void *key, const RID &rid, unsigned left, unsigned right);
 
