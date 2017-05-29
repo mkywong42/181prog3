@@ -65,7 +65,7 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
         }
         outRidSlotNumSum += rid.slotNum;
     }
-indexManager->printBtree(ixfileHandle, attribute);
+    
     // Inconsistency between insert and scan?
     if (inRidSlotNumSum != outRidSlotNumSum)
     {

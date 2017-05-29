@@ -124,8 +124,6 @@ class IndexManager {
 
         void printRecursively(IXFileHandle &ixfileHandle, const Attribute &attribute, unsigned pageNum, unsigned tabs)const;
     
-        int getDeletionSlotNum(void* page, const Attribute &attribute, const void* key);
-        void deleteEntryAtOffset(void* page, unsigned entryNum, unsigned offset, const Attribute &attribute);
 };
 
 
