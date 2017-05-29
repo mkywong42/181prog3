@@ -4,23 +4,31 @@ Team number (e.g., 01) :
 #1 Student Name : 
 #2 Student ID : 
 #2 Student Name : 
+#3 Student ID :
+#3 Student Name :
 
 2. Meta-data page in an index file
-    Our meta data for the index is s
+
 
 
 3. Index Entry Format
-- Show your index entry design (structure). 
-
+    Our index entry is a struct that consists of the fields
+        -RID
+        -Key which is a union of an int value, float value and a char* value.  This is to allow this struct to be able to have 
+        keys of different types.
+        -pointer to left child which is stored as a page number
+        -pointer to right child which is stored as a page number
+    The entry's pointer to children are -1 if the index entry is a leaf.
 
 4. Page Format
 - Show your internal-page (non-leaf node) design.
-
 - Show your leaf-page (leaf node) design.
+    Our page format for non-leaf nodes and leaf nodes are the same.  
 
 
 5. Implementation Detail
 - Have you implemented non-lazy deletion? Choose Yes or No: Also provide implementation details if yes.
+    We have chosen to implement lazy deletion.  Our pages do not merge and stay in the tree if all their entries are deleted.
 
 - Other implementation details:
 

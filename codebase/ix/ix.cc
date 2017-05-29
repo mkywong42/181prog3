@@ -717,7 +717,7 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
         setNodePageHeader(newPageData, newNodeHeader);
         int result = compare(attribute, midEntry, key);
         if(nodeHeader.isLeaf==true){
-            if(result < 0){
+            if(result <= 0){
                 insertInSortedOrder(newPageData,attribute,key,rid,-1,-1);
             }else{
                 insertInSortedOrder(page,attribute,key,rid,-1,-1);
@@ -745,7 +745,7 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
         setNodePageHeader(newPageData, newNodeHeader);
         int result = compare(attribute, midEntry, key);
         if(nodeHeader.isLeaf==true){
-            if(result < 0){
+            if(result <= 0){
                 insertInSortedOrder(newPageData,attribute,key,rid,-1,-1);
             }else{
                 insertInSortedOrder(page,attribute,key,rid,-1,-1);
@@ -772,8 +772,13 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
         }
         NodeHeader parentHeader = getNodePageHeader(parentPageData);
         if(parentHeader.endOfEntries+sizeof(NodeEntry)>PAGE_SIZE){
-// cout<<"recursive: "<<currentPageNum<<endl;
-            splitPage(ixfileHandle, parentPageData, parent, parentHeader.parent,attribute, key, rid);
+            if(attribute.type == TypeVarChar){
+                splitPage(ixfileHandle, parentPageData, parent, parentHeader.parent,attribute, midEntry.key.strValue, midEntry.rid);
+            }else if(attribute.type == TypeReal){
+                splitPage(ixfileHandle, parentPageData, parent, parentHeader.parent,attribute, &(midEntry.key.floatValue), midEntry.rid);
+            }else{
+                splitPage(ixfileHandle, parentPageData, parent, parentHeader.parent,attribute,&(midEntry.key.intValue), midEntry.rid);
+            }
         }else{
             if(attribute.type == TypeVarChar){
                 insertInParent(parentPageData, attribute, midEntry.key.strValue, midEntry.rid, currentPageNum, newNodePageNum);
@@ -789,6 +794,7 @@ unsigned IndexManager::splitPage(IXFileHandle &ixfileHandle, void* page, unsigne
         free(newPageData);
         free(parentPageData);
     }
+    return SUCCESS;
 // cout<<"exiting split"<<endl;
 }
 
